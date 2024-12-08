@@ -4,7 +4,7 @@ import logging
 import yaml
 from rich import print
 import argparse
-
+import json
 from fdm import FDMClient
 
 
@@ -53,7 +53,48 @@ class ConfigSync:
         fdm.login()        
         return fdm
     
+    def get_config(self):
+        access_rule_name = self.config['url_filtering']['rule_name']
+        self.log.info('Requesting access rule for URL filtering from FDM.')
+        self.access_rule = self.fdm.get_access_rule_by_name(access_rule_name)
     
+    def sync(self):
+        self.log.info('Starting the configuration synchronization.')
+        self.log.info('Requesting URL categories from FDM.')
+        self.url_categories = self.fdm.get_url_categories()
+        self.access_rule['urlFilter']['urlCategories'] = []
+        self.log.info('Updating the access rule.')
+        for category in self.config['url_filtering']['url_categories']:
+            cat_dict = self._get_url_category(category)
+            if cat_dict:
+                self.access_rule['urlFilter']['urlCategories'].append(cat_dict)
+        self.log.info('Adding the configuration to FDM.')
+        self.fdm.put_access_rule(self.access_rule)
+        
+        
+    def _get_url_category(self, name):
+        category_dict = None
+        for category in self.url_categories:
+            category_name = category['name']
+            if category_name == name:
+                category_dict = {
+                    'urlCategory': {
+                        'name': category_name,
+                        'id': category['id'],
+                        'type': category['type']
+                    },
+                    'type': 'urlcategorymatcher'
+                }
+                break
+        return category_dict  
+    
+    def deploy(self):
+        self.log.info('Starting with the configuration deployment.')
+        self.fdm.deploy()
+        self.log.info('Configuration deployment successful.')
+        self.log.info('Logging out from FDM.')
+        self.fdm.logout()
+        
 if __name__ == "__main__":
     args = parse_arguments()
     
@@ -64,7 +105,8 @@ if __name__ == "__main__":
         
         
     cs = ConfigSync(config=args.config, log=log)
-    # print(cs.fdm.token) #After getting and print the token, disable the print
-    # cs.get_config()
-    # cs.sync()
-    # cs.deploy()
+    #print(cs.fdm.token) #After getting and print the token, disable the print
+    cs.get_config()
+    print(json.dumps(cs.access_rule, indent=4))
+    cs.sync()
+    cs.deploy()

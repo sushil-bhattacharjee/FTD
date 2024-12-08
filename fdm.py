@@ -74,16 +74,78 @@ class FDMClient:
         self._send_request(url, method='post', body=body)    
         self.log.debug('Logout successful.')
         
-    # def get_access_policy_id(self):
+    def get_access_policy_id(self):
+        url = self.base_url + '/policy/accesspolicies'
+        headers = self._get_auth_headers()
+        self.log.debug('Requesting access policies from FDM.')
+        response = self._send_request(url, headers=headers)
+        policy_id = response['items'][0]['id']
+        self.log.debug(f'Policy ID is: {policy_id}')
+        return policy_id
+    
+    def get_access_rule_by_name(self, name):
+        self.log.debug('Searching for access rule.')
+        policy_id = self.get_access_policy_id()
+        url = self.base_url + f'/policy/accesspolicies/{policy_id}/accessrules'
+        headers = self._get_auth_headers()
+
+        self.log.debug('Requesting access rules from FDM.')
+        response = self._send_request(url, headers=headers)
+        access_rules = response.get('items')
+
+        rule_data = None
+        for rule in access_rules:
+            if name == rule.get('name'):
+                rule_data = rule
+                break
+        if rule_data is None:
+            raise Exception('Unable to find requested rule.')
+        return rule_data
         
+    def put_access_rule(self, data):
+        self.log.debug('Updating access rule on FDM.')
+        url = data['links']['self']
+        headers = self._get_auth_headers()
+
+        self.log.debug('Sending the request to update the access rule on FDM.')
+        response = self._send_request(url, method='put', headers=headers, body=data)
+        return response
         
-    # def get_access_rule_by_name(self, name):
-        
-        
-    # def put_access_rule(self, data):
-        
-        
-    # def get_url_categories(self):
-        
-        
-    # def deploy(self, timeout=180):
+    def get_url_categories(self):
+        self.log.debug('Searching for URL categories on FDM.')
+        url = self.base_url + '/object/urlcategories'
+        headers = self._get_auth_headers()
+        params = {'limit': '100'}
+
+        self.log.debug('Sending request for getting URL categories from FDM.')
+        response = self._send_request(url, headers=headers, params=params)
+        return response.get('items')  
+
+    def deploy(self, timeout=180):
+        self.log.debug('Deploying the configuration.')
+
+        url = self.base_url + '/operational/deploy'
+        headers = self._get_auth_headers()
+
+        self.log.debug('Sending the request to deploy the configuration.')
+        response = self._send_request(url, method='post', headers=headers)
+        self.log.debug('Waiting for deploy job to finish.')
+        state = response['state']
+        if state == 'QUEUED':
+            deploy_url = response['links']['self']
+            current_time = datetime.datetime.now()
+            end_time = current_time + datetime.timedelta(seconds=timeout)
+            deployed = False
+            while datetime.datetime.now() < end_time:
+                self.log.debug('Checking the status of the deploy job.')
+                response = self._send_request(deploy_url, headers=headers)
+                state = response['state']
+                self.log.debug(f'The state of the deploy job is {state}.')
+                if state == 'DEPLOYED':
+                    deployed = True
+                    break
+                time.sleep(5)
+            if not deployed:
+                raise Exception('Error while deploying the configuration.')
+        else:
+            raise Exception('Error occured when requesting the configuration deployment.')
