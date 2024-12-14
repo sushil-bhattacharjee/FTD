@@ -14,11 +14,11 @@ class FDMClient:
         self.password = password
         self.log = log
         if not log:
-            raise Exception('The logger should not be None.')
+            raise Exception('The logger should not be None.') # pylint: disable=broad-exception-raised
         self.token = None
         self.base_headers = {'Content-Type': 'application/json', 'Accept': 'application/json',}
         self.base_url = f'https://{self.host}:{self.port}/api/fdm/v6' #make sure about the version v2 or v6
-        requests.packages.urllib3.disable_warnings()
+        requests.packages.urllib3.disable_warnings() #pylint: disable=no-member
         self.log.debug('FDMClient class initialization finished.')
     
     def _send_request(self, url, method='get', headers=None, body=None, params=None):
@@ -33,26 +33,26 @@ class FDMClient:
         self.log.debug(f'Using body: {str(body)}')
         self.log.debug(f'Using query strings: {str(params)}')
         
-        response = requests_method(url, verify=False, headers=headers, json=body, params=params)
+        response = requests_method(url, verify=False, headers=headers, json=body, params=params) # pylint: disable=missing-timeout
         status_code =response.status_code
         response_body = response.json()
         self.log.debug(f'Got status code: {str(status_code)}')
         self.log.debug(f'Got response body: {str(response_body)}')
         if status_code != 200:
             msg = response_body.get('message', 'Request to FDM unsuccessful.')
-            raise Exception(msg)
+            raise Exception(msg)  # pylint: disable=broad-exception-raised
         return response_body
     
     
     def _get_auth_headers(self):
         headers = self.base_headers.copy()
-        if self.token:headers['Authorization'] = f'Bearer {self.token}'
+        if self.token:headers['Authorization'] = f'Bearer {self.token}' #Pylint: disable=multiple-statements
         else:
             msg = 'No token exists, use login method to get the token.'
-            raise Exception(msg)    
+            raise Exception(msg) # pylint: disable=broad-exception-raised   
         return headers
     
-    def login(self):
+    def login(self): # Pylint: disable=missing-function-docstring
         self.log.debug('Login to FDM.')
         url = self.base_url+ '/fdm/token'
         body = {
@@ -64,7 +64,7 @@ class FDMClient:
         self.log.debug(f'Access token: {self.token}')
         
         
-    def logout(self):
+    def logout(self):# Pylint: disable=missing-function-docstring
         self.log.debug('Logout from FDM.')
         url = self.base_url + '/fdm/token'
         body = {
